@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.mapper.ding.OpenSyncBizDataMediumMapper" >
+    <resultMap id="openSyncBizDataMap" type="com.model.OpenSyncBizDataDO" >
+        <id column="id" property="id"/>
+        <id column="gmt_create" property="gmtCreate"/>
+        <id column="gmt_modified" property="gmtModified"/>
+        <id column="subscribe_id" property="subscribeId"/>
+        <id column="corp_id" property="corpId"/>
+        <id column="biz_id" property="bizId"/>
+        <id column="biz_type" property="bizType"/>
+        <id column="biz_data" property="bizData"/>
+        <id column="open_cursor" property="openCursor"/>
+        <id column="status" property="status"/>
+    </resultMap>
+
+    <sql id="all_column" >
+        id, gmt_create,gmt_modified,subscribe_id,corp_id,biz_id,biz_type,biz_type,biz_data,open_cursor,status
+    </sql>
+
+    <select id="getOpenSyncBizData" resultMap="openSyncBizDataMap"  >
+        SELECT  <include refid="all_column" /> FROM open_sync_biz_data_medium
+        WHERE subscribe_id=#{subscribeId} AND corp_id=#{corpId} AND biz_type=#{bizType} AND biz_id=#{bizId}
+    </select>
+
+    <select id="getOpenSyncBizDataListExcludeCorpIdByStatus" resultMap="openSyncBizDataMap"  >
+        SELECT  <include refid="all_column" /> FROM open_sync_biz_data_medium
+        WHERE subscribe_id=#{subscribeId} AND status=#{status}
+        <if test="excludeCorpIdList != null and excludeCorpIdList.size() > 0">
+            AND corp_id NOT IN
+            <foreach item="item" index="index" collection="excludeCorpIdList" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+    </select>
+
+    <select id="getOpenSyncBizDataListIncludeCorpIdByStatus" resultMap="openSyncBizDataMap"  >
+        SELECT  <include refid="all_column" /> FROM open_sync_biz_data_medium
+        WHERE subscribe_id=#{subscribeId} AND status=#{status}
+        <if test="includeCorpIdList != null and includeCorpIdList.size() > 0">
+            AND corp_id IN
+            <foreach item="item" index="index" collection="includeCorpIdList" open="(" separator="," close=")">
+                #{item}
+            </foreach>
+        </if>
+    </select>
+
+    <update id="updateOpenSyncBizDataStatus">
+        UPDATE open_sync_biz_data_medium SET status=#{status} WHERE id=#{id}
+    </update>
+</mapper>

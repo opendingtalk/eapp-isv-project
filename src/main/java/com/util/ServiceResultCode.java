@@ -1,0 +1,43 @@
+package com.util;
+
+/**
+ * 全局错误码
+ * 如果业务方有自己的业务错误码,可以重新定义
+ * Created by lifeng.zlf on 2016/3/4.
+ */
+public enum ServiceResultCode {
+    /**获取套件suiteToken失败**/
+    SUCCESS("0","success"),
+    SYS_ERROR("-1","系统繁忙"),
+
+    TRY_LOCK_FAILE_LOCK_EXIST("10001","获取锁失败,有线程正在持有锁"),
+    GET_LOCK_FAILE_LOCK_DELETE_FAILE("10002","获取锁失败,删除过期锁失败");
+
+
+
+
+
+    private String errCode;
+    private String errMsg;
+
+    public String getErrCode() {
+        return errCode;
+    }
+
+    public void setErrCode(String errCode) {
+        this.errCode = errCode;
+    }
+
+    public String getErrMsg() {
+        return errMsg;
+    }
+
+    public void setErrMsg(String errMsg) {
+        this.errMsg = errMsg;
+    }
+
+    private ServiceResultCode(String errCode, String errMsg){
+        this.errCode = errCode;
+        this.errMsg = errMsg;
+    }
+}
