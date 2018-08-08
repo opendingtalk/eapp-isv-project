@@ -29,4 +29,4 @@ CREATE TABLE `authed_corp` (
   `agent_id` bigint(20) unsigned DEFAULT NULL COMMENT '企业开通应用实例id',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_corp_suite` (`corp_id`,`suite_key`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COMMENT='授权开通应用套件的企业'
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COMMENT='授权开通应用套件的企业';

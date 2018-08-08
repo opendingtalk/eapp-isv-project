@@ -85,15 +85,24 @@
 			<systemPath>${pom.basedir}/lib/taobao-sdk-java-auto_1479188381469-20180801.jar</systemPath>
 		</dependency>
 	</dependencies>
-	
+
+
 	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-	                <fork>true</fork>
-	            </configuration>
+					<includeSystemScope>true</includeSystemScope>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<fork>true</fork>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>
