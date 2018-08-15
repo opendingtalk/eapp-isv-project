@@ -20,8 +20,8 @@ public class SystemConfigServiceImpl {
     private String suiteSecret;
     @Value("${preEvnCorpIdList}")
     private String preEvnCorpIdList;
-
-
+    @Value("${isvCorpId}")
+    private String isvCorpId;
     public Long getSuiteId(){
         return suiteId;
     }
@@ -36,5 +36,9 @@ public class SystemConfigServiceImpl {
 
     public List<String> getPreEvnCorpIdList() {
         return JSON.parseArray(preEvnCorpIdList,String.class);
+    }
+
+    public String getIsvCorpId() {
+        return isvCorpId;
     }
 }

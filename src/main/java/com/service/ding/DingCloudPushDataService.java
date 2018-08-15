@@ -1,9 +1,9 @@
-package com.service;
+package com.service.ding;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.dingtalk.api.response.OapiServiceGetCorpTokenResponse;
-import com.enums.BizTypeEnum;
+import com.enums.DingCloudPushBizTypeEnum;
 import com.enums.SyncDataStatusEnum;
 import com.mapper.biz.AuthedCorpMapper;
 import com.mapper.ding.OpenSyncBizDataBaseMapper;
@@ -11,6 +11,9 @@ import com.mapper.ding.OpenSyncBizDataMapper;
 import com.mapper.ding.OpenSyncBizDataMediumMapper;
 import com.model.AuthedCorpDO;
 import com.model.OpenSyncBizDataDO;
+import com.service.biz.BizLockServiceImpl;
+import com.service.EnvironmentServiceImpl;
+import com.service.SystemConfigServiceImpl;
 import com.util.LogFormatter;
 import com.util.ServiceResult;
 import org.slf4j.Logger;
@@ -56,7 +59,7 @@ public class DingCloudPushDataService {
      * @param openSyncBizDataBaseMapper     不同的处理dao抽象类
      */
     public void processor(String subscribeId, OpenSyncBizDataBaseMapper openSyncBizDataBaseMapper) {
-        //根据优先级高低定义锁。没有获取锁直接返回。也可以使用TAIR实现
+        //根据优先级高低定义锁。没有获取锁直接返回。也可以使用REDIS实现
         List<OpenSyncBizDataDO> inboxList = new ArrayList<>();
         List<String> corpIdList = systemConfigService.getPreEvnCorpIdList();
         Long startTime = System.currentTimeMillis();
@@ -68,6 +71,9 @@ public class DingCloudPushDataService {
         } else {
             return;
         }
+        //TODO 担心多个扫表
+        //推荐使用阿里云X调度服务。
+        //TODO 保证一批数据在100s内处理完成。异步 TODO
         ServiceResult<BizLockServiceImpl.BizLockVO> tryLockSr = bizLockService.tryLock(lockKey, 100L);
         if (!tryLockSr.isSuccess()) {
             return;
@@ -76,11 +82,11 @@ public class DingCloudPushDataService {
         try {
             if (environmentService.isOnline()) {
                 //如果是线上服务,排除掉不需要处理的企业数据。这些排除掉的企业数据在预发和日常被测试使用。
-                inboxList = openSyncBizDataBaseMapper.getOpenSyncBizDataListExcludeCorpIdByStatus(subscribeId, corpIdList, SyncDataStatusEnum.DEAL_WAIT.getValue(), INBOX_SIZE);
+                inboxList = openSyncBizDataBaseMapper.getOpenSyncBizDataListExcludeCorpIdByStatus(subscribeId, corpIdList, SyncDataStatusEnum.WAITING.getValue(), INBOX_SIZE);
             }
             if (environmentService.isPre() || environmentService.isDaily()) {
                 //如果是预发日常服务,只处理用于测试的企业。不要处理正常的线上数据。
-                inboxList = openSyncBizDataBaseMapper.getOpenSyncBizDataListIncludeCorpIdByStatus(subscribeId, corpIdList, SyncDataStatusEnum.DEAL_WAIT.getValue(), INBOX_SIZE);
+                inboxList = openSyncBizDataBaseMapper.getOpenSyncBizDataListIncludeCorpIdByStatus(subscribeId, corpIdList, SyncDataStatusEnum.WAITING.getValue(), INBOX_SIZE);
             }
             if (CollectionUtils.isEmpty(inboxList)) {
                 return;
@@ -115,6 +121,8 @@ public class DingCloudPushDataService {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            //注意，这种写法将processor方法的执行限制在了一台机器上。
+            //当有多台机器执行任务的时候，开发者可以利用队列的广播机制，将processor的方法执行转移到其他机器上。
             processor(subscribeId, openSyncBizDataBaseMapper);
             String accessLog = LogFormatter.getKVLogData(LogFormatter.LogEvent.END,
                     LogFormatter.KeyValue.getNew("subscribeId", subscribeId),
@@ -128,6 +136,7 @@ public class DingCloudPushDataService {
     }
 
     /**
+     * TODO switch
      * 具体处理每种推送数据类型的方法
      * @param openSyncBizDataDO DO
      */
@@ -135,17 +144,17 @@ public class DingCloudPushDataService {
         bizLogger.info(LogFormatter.getKVLogData(LogFormatter.LogEvent.END,
                 LogFormatter.KeyValue.getNew("openSyncBizDataDO", JSON.toJSONString(openSyncBizDataDO))));
         if (null == openSyncBizDataDO) {
-            return SyncDataStatusEnum.DEAL_SUCCESS;
+            return SyncDataStatusEnum.SUCCEEDED;
         }
-        SyncDataStatusEnum result = SyncDataStatusEnum.DEAL_FAILED;
+        SyncDataStatusEnum result = SyncDataStatusEnum.FAILED;
         try {
             JSONObject bizObject = JSONObject.parseObject(openSyncBizDataDO.getBizData());
             String syncAction = bizObject.getString("syncAction");
-            if (BizTypeEnum.SUITE_TICKET.getValue().equals(openSyncBizDataDO.getBizType())) {
+            if (DingCloudPushBizTypeEnum.SUITE_TICKET.getValue().equals(openSyncBizDataDO.getBizType())) {
                 //套件SuiteKey票据
                 //套件Ticket不存入ISV的业务库了,可以直接使用钉钉推送库的数据。
-                result = SyncDataStatusEnum.DEAL_SUCCESS;
-            } else if (BizTypeEnum.ORG_AUTH.getValue().equals(openSyncBizDataDO.getBizType())) {
+                result = SyncDataStatusEnum.SUCCEEDED;
+            } else if (DingCloudPushBizTypeEnum.ORG_AUTH.getValue().equals(openSyncBizDataDO.getBizType())) {
                 //企业和套件的授权关系处理。企业授权、解除授权、权限变更
                 if ("org_suite_auth".equals(syncAction)) {
                     //企业授权应用套件
@@ -157,28 +166,31 @@ public class DingCloudPushDataService {
                     //使用钉钉服务端API获取accessToken及过期时间
                     OapiServiceGetCorpTokenResponse oapiServiceGetCorpTokenResponse = dingOAPIService.getOapiServiceGetCorpToken(corpObject.getString("corpid"));
                     String accessToken = oapiServiceGetCorpTokenResponse.getAccessToken();
-                    Long expire = oapiServiceGetCorpTokenResponse.getExpiresIn();
+                    //相对过期时间。单位秒
+                    Long expireInSeconds = oapiServiceGetCorpTokenResponse.getExpiresIn();
                     authedCorpDO.setAccessToken(accessToken);
-                    authedCorpDO.setAccessTokenExpire(expire);
+                    authedCorpDO.setAccessTokenExpire(System.currentTimeMillis()+expireInSeconds*1000);
                     bizObject.getString("permanent_code");
                     authedCorpDO.setSuiteKey(systemConfigService.getSuiteKey());
                     authedCorpDO.setPermanentCode("permanentCode");
                     //对于E应用,agent的数组只有一个长度
                     authedCorpDO.setAgentId(authObject.getJSONArray("agent").getJSONObject(0).getLong("agentid"));
                     authedCorpMapper.addOrUpdateAuthedCorp(authedCorpDO);
-                    result = SyncDataStatusEnum.DEAL_SUCCESS;
+
+                    //有通讯录拉通讯录。异步。
+                    result = SyncDataStatusEnum.SUCCEEDED;
                 }
                 //TODO 其他的syncActionISV自行处理
-            } else if (BizTypeEnum.ORG_MICROAPP.getValue().equals(openSyncBizDataDO.getBizType())) {
+            } else if (DingCloudPushBizTypeEnum.ORG_MICROAPP.getValue().equals(openSyncBizDataDO.getBizType())) {
                 //企业微应用状态变更
                 //TODO ISV自行处理该业务
-            } else if (BizTypeEnum.ORG_USER.getValue().equals(openSyncBizDataDO.getBizType())) {
+            } else if (DingCloudPushBizTypeEnum.ORG_USER.getValue().equals(openSyncBizDataDO.getBizType())) {
                 //企业员工信息变更
                 //TODO ISV自行处理该业务
-            } else if (BizTypeEnum.ORG_DEPT.getValue().equals(openSyncBizDataDO.getBizType())) {
+            } else if (DingCloudPushBizTypeEnum.ORG_DEPT.getValue().equals(openSyncBizDataDO.getBizType())) {
                 //企业部门信息变更
                 //TODO ISV自行处理该业务
-            } else if (BizTypeEnum.ORG_ROLE.getValue().equals(openSyncBizDataDO.getBizType())) {
+            } else if (DingCloudPushBizTypeEnum.ORG_ROLE.getValue().equals(openSyncBizDataDO.getBizType())) {
                 //企业橘色信息变更
                 //TODO ISV自行处理该业务
             } else {
@@ -199,21 +211,23 @@ public class DingCloudPushDataService {
     @PostConstruct
     public void init() {
         Long suiteId = systemConfigService.getSuiteId();
+        //约定的订阅者id写法
         final String subscribeId = suiteId + "_0";
+
         //起两个线程处理高低优先级收件箱。
+        //thread 起个名字 TODO
         new Thread(new Runnable() {
             @Override
             public void run() {
                 processor(subscribeId,openSyncBizDataMapper);
             }
         }).start();
-        bizLogger.error("start1.....");
+
         new Thread(new Runnable() {
             @Override
             public void run() {
                 processor(subscribeId,openSyncBizDataMediumMapper);
             }
         }).start();
-        bizLogger.error("start2.....");
     }
 }

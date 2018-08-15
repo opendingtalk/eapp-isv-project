@@ -1,6 +1,7 @@
 package com.service;
 
 import com.alibaba.fastjson.JSON;
+import com.service.biz.BizLockServiceImpl;
 import com.util.ServiceResult;
 import org.junit.Test;
 import org.junit.runner.RunWith;

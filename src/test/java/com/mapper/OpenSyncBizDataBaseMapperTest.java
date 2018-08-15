@@ -1,7 +1,7 @@
 package com.mapper;
 
 import com.alibaba.fastjson.JSON;
-import com.enums.BizTypeEnum;
+import com.enums.DingCloudPushBizTypeEnum;
 import com.enums.SyncDataStatusEnum;
 import com.mapper.ding.OpenSyncBizDataMapper;
 import com.mapper.ding.OpenSyncBizDataMediumMapper;
@@ -32,13 +32,13 @@ public class OpenSyncBizDataBaseMapperTest {
 	public void testGetOpenSyncBizData() {
 		String subscribeId = systemConfigService.getSuiteId()+"_0";
 		String corpId = "ding9f50b15bccd16741";
-		Integer bizType = BizTypeEnum.ORG_AUTH.getValue();
+		Integer bizType = DingCloudPushBizTypeEnum.ORG_AUTH.getValue();
 		String bizId = String.valueOf(systemConfigService.getSuiteId());
 
 		OpenSyncBizDataDO openSyncBizDataDO = openSyncBizDataMapper.getOpenSyncBizData(subscribeId,corpId,bizType,bizId);
 		System.out.println(JSON.toJSONString(openSyncBizDataDO));
 
-		bizType = BizTypeEnum.ORG_USER.getValue();
+		bizType = DingCloudPushBizTypeEnum.ORG_USER.getValue();
 		bizId = "sss";
 		openSyncBizDataDO = openSyncBizDataMediumMapper.getOpenSyncBizData(subscribeId,corpId,bizType,bizId);
 		System.out.println(JSON.toJSONString(openSyncBizDataDO));
@@ -53,10 +53,10 @@ public class OpenSyncBizDataBaseMapperTest {
 		excludeCorpIdList.add("aa");
 		excludeCorpIdList.add("bb");
 
-		List<OpenSyncBizDataDO> openSyncBizDataDOList = openSyncBizDataMapper.getOpenSyncBizDataListExcludeCorpIdByStatus(subscribeId,excludeCorpIdList, SyncDataStatusEnum.DEAL_WAIT.getValue(),10);
+		List<OpenSyncBizDataDO> openSyncBizDataDOList = openSyncBizDataMapper.getOpenSyncBizDataListExcludeCorpIdByStatus(subscribeId,excludeCorpIdList, SyncDataStatusEnum.WAITING.getValue(),10);
 		System.out.println(JSON.toJSONString(openSyncBizDataDOList));
 
-		openSyncBizDataDOList = openSyncBizDataMediumMapper.getOpenSyncBizDataListExcludeCorpIdByStatus(subscribeId,excludeCorpIdList, SyncDataStatusEnum.DEAL_WAIT.getValue(),10);
+		openSyncBizDataDOList = openSyncBizDataMediumMapper.getOpenSyncBizDataListExcludeCorpIdByStatus(subscribeId,excludeCorpIdList, SyncDataStatusEnum.WAITING.getValue(),10);
 		System.out.println(JSON.toJSONString(openSyncBizDataDOList));
 		System.out.println(JSON.toJSONString(openSyncBizDataDOList));
 	}
@@ -64,8 +64,8 @@ public class OpenSyncBizDataBaseMapperTest {
 
 	@Test
 	public void testUpdateOpenSyncBizDataStatus() {
-		openSyncBizDataMapper.updateOpenSyncBizDataStatus(1L,SyncDataStatusEnum.DEAL_SUCCESS.getValue());
-		openSyncBizDataMediumMapper.updateOpenSyncBizDataStatus(1L,SyncDataStatusEnum.DEAL_WAIT.getValue());
+		openSyncBizDataMapper.updateOpenSyncBizDataStatus(1L,SyncDataStatusEnum.SUCCEEDED.getValue());
+		openSyncBizDataMediumMapper.updateOpenSyncBizDataStatus(1L,SyncDataStatusEnum.WAITING.getValue());
 
 	}
 

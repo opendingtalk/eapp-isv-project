@@ -6,11 +6,11 @@ package com.enums;
  */
 public enum SyncDataStatusEnum {
 
-    DEAL_WAIT("等待处理状态",0),
+    WAITING("等待处理状态",0),
 
-    DEAL_SUCCESS("处理成功状态",1),
+    SUCCEEDED("处理成功状态",1),
 
-    DEAL_FAILED("处理失败状态",2);
+    FAILED("处理失败状态",2);
 
     private final String name;
 

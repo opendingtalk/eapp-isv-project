@@ -10,11 +10,8 @@ public enum ServiceResultCode {
     SUCCESS("0","success"),
     SYS_ERROR("-1","系统繁忙"),
 
-    TRY_LOCK_FAILE_LOCK_EXIST("10001","获取锁失败,有线程正在持有锁"),
-    GET_LOCK_FAILE_LOCK_DELETE_FAILE("10002","获取锁失败,删除过期锁失败");
-
-
-
+    LOCK_EXIST("20001","获取锁失败,有线程正在持有锁"),
+    LOCK_DELETE_FAILED("20002","获取锁失败,删除过期锁失败");
 
 
     private String errCode;

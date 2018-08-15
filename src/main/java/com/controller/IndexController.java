@@ -6,7 +6,7 @@ import com.dingtalk.api.response.OapiUserGetResponse;
 import com.dingtalk.api.response.OapiUserGetuserinfoResponse;
 import com.mapper.biz.AuthedCorpMapper;
 import com.model.AuthedCorpDO;
-import com.service.DingOAPIServiceImpl;
+import com.service.ding.DingOAPIServiceImpl;
 import com.service.SystemConfigServiceImpl;
 import com.util.ServiceResult;
 import org.slf4j.Logger;
@@ -80,8 +80,7 @@ public class IndexController {
     }
 
     /**
-     * 钉钉用户登录，显示当前登录的企业和用户
-     *
+     * 钉钉用户发消息
      * @param corpId          授权企业的CorpId
      * @param userId          消息接收人的userId
      */

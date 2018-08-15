@@ -1,4 +1,4 @@
-package com.service;
+package com.service.ding;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -7,37 +7,47 @@ import java.util.Random;
 
 import javax.annotation.Resource;
 
+import com.alibaba.fastjson.JSON;
 import com.dingtalk.api.request.*;
 import com.dingtalk.api.response.*;
+import com.enums.DingCloudPushBizTypeEnum;
+import com.mapper.ding.OpenSyncBizDataMapper;
+import com.model.OpenSyncBizDataDO;
+import com.service.SystemConfigServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.config.URLConstant;
+import com.config.ApiUrlConstant;
 import com.dingtalk.api.DefaultDingTalkClient;
 import com.dingtalk.api.DingTalkClient;
 import com.dingtalk.api.DingTalkSignatureUtil;
 import com.taobao.api.ApiException;
 
+/**
+ * 对钉钉开放平台服务端SDK的封装类
+ * 避免到处写SDK的调用逻辑
+ */
 @Service("dingOAPIService")
 public class DingOAPIServiceImpl {
     private static final Logger bizLogger = LoggerFactory.getLogger(DingOAPIServiceImpl.class);
 
     @Resource
     private SystemConfigServiceImpl systemConfigService;
+    @Resource
+    private OpenSyncBizDataMapper openSyncBizDataMapper;
     /**
-     * ISV获取企业访问凭证
-     *
+     * ISV获取企业访问凭证。获取企业的accessToken
      * @param corpId 授权企业的corpId
      */
     public OapiServiceGetCorpTokenResponse getOapiServiceGetCorpToken(String corpId) {
         if (corpId == null || corpId.isEmpty()) {
             return null;
         }
-
+        //TODO 先从本地拿token
         long timestamp = System.currentTimeMillis();
         //正式应用应该由钉钉通过开发者的回调地址动态获取到
-        String suiteTicket = getSuiteTickt(systemConfigService.getSuiteKey());
+        String suiteTicket = getSuiteTicket(systemConfigService.getSuiteId());
         String signature = DingTalkSignatureUtil.computeSignature(systemConfigService.getSuiteSecret(), DingTalkSignatureUtil.getCanonicalStringForIsv(timestamp, suiteTicket));
         Map<String, String> params = new LinkedHashMap<String, String>();
         params.put("timestamp", String.valueOf(timestamp));
@@ -45,7 +55,7 @@ public class DingOAPIServiceImpl {
         params.put("accessKey", systemConfigService.getSuiteKey());
         params.put("signature", signature);
         String queryString = DingTalkSignatureUtil.paramToQueryString(params, "utf-8");
-        DingTalkClient client = new DefaultDingTalkClient(URLConstant.URL_GET_CORP_TOKEN + "?" + queryString);
+        DingTalkClient client = new DefaultDingTalkClient(ApiUrlConstant.URL_GET_CORP_TOKEN + "?" + queryString);
         OapiServiceGetCorpTokenRequest request = new OapiServiceGetCorpTokenRequest();
         request.setAuthCorpid(corpId);
         OapiServiceGetCorpTokenResponse response;
@@ -69,7 +79,7 @@ public class DingOAPIServiceImpl {
      * @
      */
     public OapiUserGetuserinfoResponse getOapiUserGetuserinfo(String accessToken, String code) {
-        DingTalkClient client = new DefaultDingTalkClient(URLConstant.URL_GET_USER_INFO);
+        DingTalkClient client = new DefaultDingTalkClient(ApiUrlConstant.URL_GET_USER_INFO);
         OapiUserGetuserinfoRequest request = new OapiUserGetuserinfoRequest();
         request.setCode(code);
         request.setHttpMethod("GET");
@@ -96,7 +106,7 @@ public class DingOAPIServiceImpl {
      */
     public OapiUserGetResponse getOapiUserGetUserName(String accessToken, String userId) {
 
-        DingTalkClient client = new DefaultDingTalkClient(URLConstant.URL_GET_USER_NICK);
+        DingTalkClient client = new DefaultDingTalkClient(ApiUrlConstant.URL_GET_USER_NICK);
         OapiUserGetRequest request = new OapiUserGetRequest();
         request.setUserid(userId);
         request.setHttpMethod("GET");
@@ -126,12 +136,13 @@ public class DingOAPIServiceImpl {
             return null;
         }
 
-        DingTalkClient client = new DefaultDingTalkClient(URLConstant.URL_SEND_LINK_MESSAGE + "?access_token=" + accessToken);
+        DingTalkClient client = new DefaultDingTalkClient(ApiUrlConstant.URL_SEND_LINK_MESSAGE + "?access_token=" + accessToken);
         OapiMessageCorpconversationAsyncsendV2Request request = new OapiMessageCorpconversationAsyncsendV2Request();
 
         request.setUseridList(userIdList.get(0));
         request.setAgentId(agentId);
         request.setToAllUser(false);
+        //这个参数提出来。
         OapiMessageCorpconversationAsyncsendV2Request.Msg msg = new OapiMessageCorpconversationAsyncsendV2Request.Msg();
         msg.setMsgtype("link");
         msg.setLink(new OapiMessageCorpconversationAsyncsendV2Request.Link());
@@ -154,17 +165,13 @@ public class DingOAPIServiceImpl {
     }
 
     /**
-     * suiteTicket是一个定时变化的票据，主要目的是为了开发者的应用与钉钉之间访问时的安全加固。
-     * 测试应用：可随意设置，钉钉只做签名不做安全加固限制。
-     * 正式应用：开发者应该从自己的db中读取suiteTicket,suiteTicket是由开发者在开发者平台设置的应用回调地址，由钉钉定时推送给应用，
-     * 由开发者在回调地址所在代码解密和验证签名完成后获取到的.正式应用钉钉会在开发者代码访问时做严格检查。
-     *
+     * 直接读钉钉云推送的数据库。直接拿到suiteTicket
      * @return suiteTicket
      */
-    private String getSuiteTickt(String suiteKey) {
-        //正式应用必须由应用回调地址从钉钉推送获取
-        return "zngkJOKb4RmK";
-
+    private String getSuiteTicket(Long suiteId) {
+        String subscibeId = suiteId+"_0";
+        OpenSyncBizDataDO openSyncBizDataDO = openSyncBizDataMapper.getOpenSyncBizData(subscibeId,systemConfigService.getIsvCorpId(), DingCloudPushBizTypeEnum.SUITE_TICKET.getValue(),String.valueOf(suiteId));
+        return JSON.parseObject(openSyncBizDataDO.getBizData()).getString("suiteTicket");
     }
 
 }

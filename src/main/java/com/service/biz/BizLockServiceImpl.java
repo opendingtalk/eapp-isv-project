@@ -1,4 +1,4 @@
-package com.service;
+package com.service.biz;
 
 import com.mapper.biz.BizLockMapper;
 import com.model.BizLockDO;
@@ -14,6 +14,9 @@ import java.util.Date;
 
 /**
  * 锁服务。DB锁。
+ * 注意：
+ *     ISV可以不使用Myql的DB作为锁服务。此处使用DB锁是因为不想引入过多的中间件依赖。
+ *     推荐使用Redis等中间件作为锁服务。
  */
 @Service("bizLockService")
 public class BizLockServiceImpl {
@@ -23,7 +26,13 @@ public class BizLockServiceImpl {
     @Resource
     private BizLockMapper bizLockMapper;
 
-    ServiceResult<BizLockVO> tryLock(String lockKey, Long seconds){
+    /**
+     * 尝试加锁
+     * @param lockKey 锁的Key值。
+     * @param seconds 锁定多少秒。
+     * @return
+     */
+    public ServiceResult<BizLockVO> tryLock(String lockKey, Long seconds){
         bizLogger.info(LogFormatter.getKVLogData(LogFormatter.LogEvent.START,
                 LogFormatter.KeyValue.getNew("lockKey", lockKey),
                 LogFormatter.KeyValue.getNew("seconds", seconds)
@@ -34,7 +43,7 @@ public class BizLockServiceImpl {
             //如果DB中的锁记录存在,并且DB的当前时间小于锁过期的预期时间。那么说明锁是正常存在的
             //说明有线程正在持有锁
             if(null!=bizLockDO&&bizLockDO.getCurTime()<=bizLockDO.getExpire()){
-                return ServiceResult.failure(ServiceResultCode.TRY_LOCK_FAILE_LOCK_EXIST.getErrCode(),ServiceResultCode.TRY_LOCK_FAILE_LOCK_EXIST.getErrMsg());
+                return ServiceResult.failure(ServiceResultCode.LOCK_EXIST.getErrCode(),ServiceResultCode.LOCK_EXIST.getErrMsg());
             }
             //如果DB中锁存在,但是DB的当时时间已经比锁过期的预期时间大了。说明锁已经过期了,但是因为某些原因删除这个锁失败了。
             //所以要被动的删掉过期的锁。当删除锁出现并发的时候,哪个线程删掉了锁,哪个线程被允许去加锁。
@@ -44,7 +53,7 @@ public class BizLockServiceImpl {
                 int delCount = bizLockMapper.deleteBizLock(lockKey,bizLockDO.getId());
                 lastLockSec = bizLockDO.getExpire() - bizLockDO.getGmtCreate().getTime()/1000;
                 if(delCount<1){
-                    return ServiceResult.failure(ServiceResultCode.GET_LOCK_FAILE_LOCK_DELETE_FAILE.getErrCode(),ServiceResultCode.GET_LOCK_FAILE_LOCK_DELETE_FAILE.getErrMsg());
+                    return ServiceResult.failure(ServiceResultCode.LOCK_DELETE_FAILED.getErrCode(),ServiceResultCode.LOCK_DELETE_FAILED.getErrMsg());
                 }
             }
             //向DB中插入数据,利用唯一索引排他来加锁.
@@ -62,19 +71,20 @@ public class BizLockServiceImpl {
                     LogFormatter.KeyValue.getNew("lockKey", lockKey),
                     LogFormatter.KeyValue.getNew("seconds", seconds)
             );
-            bizLogger.error(errLog,e);
+            bizLogger.error(errLog, e);
+            mainLogger.error(errLog, e);
             return ServiceResult.failure(ServiceResultCode.SYS_ERROR.getErrCode(),ServiceResultCode.SYS_ERROR.getErrMsg());
         }
     }
 
     /**
      * 删除锁。
-     * 为什么要加上ID呢。因为当DB中存在过期的锁的情况下,两个线程并发的去删除过期锁,加上新的锁。这种场景下如果没有ID做乐观锁版本控制。
+     * 因为当DB中存在过期的锁的情况下,两个线程并发的去删除过期锁,加上新的锁。这种场景下如果没有ID做乐观锁版本控制。
      * 删除会误删除新加的锁，从而引起BUG
      * @param lockKey 锁Key
-     * @param id      锁ID。主键ID
+     * @param id      锁ID，主键ID
      */
-    ServiceResult<Boolean> unLock(String lockKey,Long id){
+    public ServiceResult<Boolean> unLock(String lockKey,Long id){
         bizLogger.info(LogFormatter.getKVLogData(LogFormatter.LogEvent.START,
                 LogFormatter.KeyValue.getNew("lockKey", lockKey),
                 LogFormatter.KeyValue.getNew("id", id)
@@ -83,8 +93,10 @@ public class BizLockServiceImpl {
         return ServiceResult.success(Boolean.TRUE);
     }
 
-
-    static class BizLockVO{
+    /**
+     * 锁的VO对象
+     */
+    public static class BizLockVO{
         //本次拿到锁的主键
         private Long id;
         private Date gmtCreate;

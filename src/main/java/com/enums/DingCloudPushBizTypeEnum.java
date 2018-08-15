@@ -4,7 +4,7 @@ package com.enums;
  * 钉钉给ISV的推送事件。
  * 请关注钉钉开放平稳文档。
  */
-public enum BizTypeEnum {
+public enum DingCloudPushBizTypeEnum {
     /**
      * 套件票据
      */
@@ -44,7 +44,7 @@ public enum BizTypeEnum {
 
     private final Integer value;
 
-    BizTypeEnum(String tagName, Integer tagType){
+    DingCloudPushBizTypeEnum(String tagName, Integer tagType){
         this.name = tagName;
         this.value = tagType;
     }
@@ -58,9 +58,9 @@ public enum BizTypeEnum {
     }
 
 
-    public static BizTypeEnum getBizTypeEnum(Integer value){
-        BizTypeEnum[] bizTypeArr = BizTypeEnum.values();
-        for (BizTypeEnum o : bizTypeArr) {
+    public static DingCloudPushBizTypeEnum getBizTypeEnum(Integer value){
+        DingCloudPushBizTypeEnum[] bizTypeArr = DingCloudPushBizTypeEnum.values();
+        for (DingCloudPushBizTypeEnum o : bizTypeArr) {
             if (o.getValue().equals(value)) {
                 return o;
             }

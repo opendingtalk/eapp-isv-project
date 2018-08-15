@@ -3,7 +3,7 @@ package com.config;
 /**
  * 钉钉开放平台接口URL的常量类
  */
-public class URLConstant {
+public class ApiUrlConstant {
 	
 	/**
      * 获取可访问企业相关信息的accessToken的URL
