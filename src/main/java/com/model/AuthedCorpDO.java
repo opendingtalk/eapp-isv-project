@@ -19,7 +19,7 @@ public class AuthedCorpDO {
 	 */
 	private String accessToken;
 	/**
-	 * 企业访问accessToken过期时间,绝对时间
+	 * 企业访问accessToken过期时间,绝对时间。单位毫秒
 	 */
 	private Long accessTokenExpire;
 	/**

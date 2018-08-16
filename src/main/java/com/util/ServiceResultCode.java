@@ -11,8 +11,9 @@ public enum ServiceResultCode {
     SYS_ERROR("-1","系统繁忙"),
 
     LOCK_EXIST("20001","获取锁失败,有线程正在持有锁"),
-    LOCK_DELETE_FAILED("20002","获取锁失败,删除过期锁失败");
+    LOCK_DELETE_FAILED("20002","获取锁失败,删除过期锁失败"),
 
+    CORP_NOT_AUTH("20003","企业没有授权开通应用");
 
     private String errCode;
     private String errMsg;

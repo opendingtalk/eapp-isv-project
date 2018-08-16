@@ -18,6 +18,7 @@ import com.util.LogFormatter;
 import com.util.ServiceResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -36,8 +37,7 @@ public class DingCloudPushDataService {
     private static final Logger bizLogger = LoggerFactory.getLogger("PROJECT_LOG");
     //每次从收件箱中查出20条数据处理。此处的处理速度可以自行控制。
     private final int INBOX_SIZE = 20;
-    //每次处理收件箱的时间间隔。如果对于处理速度不敏感。可以释放放宽该时间。注意不要改为0，会对DB的轮训压力过大。
-    private final long SYNC_INTERVAL = 1000 * 3;
+
     @Resource
     private OpenSyncBizDataMapper openSyncBizDataMapper;
     @Resource
@@ -55,14 +55,16 @@ public class DingCloudPushDataService {
 
     /**
      * 处理钉钉推送过来的各种业务事件
-     * @param subscribeId                   订阅者ID
-     * @param openSyncBizDataBaseMapper     不同的处理dao抽象类
+     *
+     * @param subscribeId               订阅者ID
+     * @param openSyncBizDataBaseMapper 不同的处理dao抽象类
      */
     public void processor(String subscribeId, OpenSyncBizDataBaseMapper openSyncBizDataBaseMapper) {
         //根据优先级高低定义锁。没有获取锁直接返回。也可以使用REDIS实现
         List<OpenSyncBizDataDO> inboxList = new ArrayList<>();
         List<String> corpIdList = systemConfigService.getPreEvnCorpIdList();
         Long startTime = System.currentTimeMillis();
+        //按照不同的表建立锁Key
         String lockKey;
         if (openSyncBizDataBaseMapper instanceof OpenSyncBizDataMediumMapper) {
             lockKey = "ding_cloud_push_medium";
@@ -71,9 +73,7 @@ public class DingCloudPushDataService {
         } else {
             return;
         }
-        //TODO 担心多个扫表
-        //推荐使用阿里云X调度服务。
-        //TODO 保证一批数据在100s内处理完成。异步 TODO
+        //加锁时间默认是100秒。ISV需要根据业务评估,保证一批数据在100s内处理完成。如果有耗时长的任务，建议异步处理。
         ServiceResult<BizLockServiceImpl.BizLockVO> tryLockSr = bizLockService.tryLock(lockKey, 100L);
         if (!tryLockSr.isSuccess()) {
             return;
@@ -113,17 +113,10 @@ public class DingCloudPushDataService {
                     LogFormatter.KeyValue.getNew("openSyncBizDataBaseMapper", openSyncBizDataBaseMapper.getClass())
             );
             bizLogger.error(errLog, e);
+            mainLogger.error(errLog, e);
         } finally {
-            //释放分布式锁后，处理线程先休息一下，然后继续扫描inbox表处理。否则DB会变成死循环。压力过大。
+            //释放锁
             bizLockService.unLock(lockKey, bizLockVO.getId());
-            try {
-                Thread.sleep(SYNC_INTERVAL);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            //注意，这种写法将processor方法的执行限制在了一台机器上。
-            //当有多台机器执行任务的时候，开发者可以利用队列的广播机制，将processor的方法执行转移到其他机器上。
-            processor(subscribeId, openSyncBizDataBaseMapper);
             String accessLog = LogFormatter.getKVLogData(LogFormatter.LogEvent.END,
                     LogFormatter.KeyValue.getNew("subscribeId", subscribeId),
                     LogFormatter.KeyValue.getNew("env", environmentService.getEnvironment()),
@@ -138,6 +131,7 @@ public class DingCloudPushDataService {
     /**
      * TODO switch
      * 具体处理每种推送数据类型的方法
+     *
      * @param openSyncBizDataDO DO
      */
     public SyncDataStatusEnum dealSyncInboxDO(OpenSyncBizDataDO openSyncBizDataDO) {
@@ -163,13 +157,8 @@ public class DingCloudPushDataService {
                     AuthedCorpDO authedCorpDO = new AuthedCorpDO();
                     authedCorpDO.setCorpName(corpObject.getString("corp_name"));
                     authedCorpDO.setCorpId(corpObject.getString("corpid"));
-                    //使用钉钉服务端API获取accessToken及过期时间
-                    OapiServiceGetCorpTokenResponse oapiServiceGetCorpTokenResponse = dingOAPIService.getOapiServiceGetCorpToken(corpObject.getString("corpid"));
-                    String accessToken = oapiServiceGetCorpTokenResponse.getAccessToken();
-                    //相对过期时间。单位秒
-                    Long expireInSeconds = oapiServiceGetCorpTokenResponse.getExpiresIn();
-                    authedCorpDO.setAccessToken(accessToken);
-                    authedCorpDO.setAccessTokenExpire(System.currentTimeMillis()+expireInSeconds*1000);
+                    authedCorpDO.setAccessToken("");//该字段暂时放空
+                    authedCorpDO.setAccessTokenExpire(0L);//该字段暂存为0
                     bizObject.getString("permanent_code");
                     authedCorpDO.setSuiteKey(systemConfigService.getSuiteKey());
                     authedCorpDO.setPermanentCode("permanentCode");
@@ -205,29 +194,15 @@ public class DingCloudPushDataService {
     }
 
     /**
-     * 程序启动自动执行收件箱事件。
-     * 同时这个任务还要配置DTS任务来执行。
+     * 定时执行任务。10s一次。
+     * 每次处理收件箱的时间间隔。如果对于处理速度不敏感。可以释放放宽该时间。注意不要改为0，会对DB的轮训压力过大。
      */
-    @PostConstruct
-    public void init() {
+    @Scheduled(cron = "0/10 * * * * ?")
+    public void timerToNow() {
         Long suiteId = systemConfigService.getSuiteId();
         //约定的订阅者id写法
         final String subscribeId = suiteId + "_0";
-
-        //起两个线程处理高低优先级收件箱。
-        //thread 起个名字 TODO
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                processor(subscribeId,openSyncBizDataMapper);
-            }
-        }).start();
-
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                processor(subscribeId,openSyncBizDataMediumMapper);
-            }
-        }).start();
+        processor(subscribeId, openSyncBizDataMediumMapper);
+        processor(subscribeId, openSyncBizDataMapper);
     }
 }

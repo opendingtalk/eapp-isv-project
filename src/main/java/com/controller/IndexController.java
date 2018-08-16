@@ -17,8 +17,11 @@ import javax.annotation.Resource;
 import java.util.*;
 
 /**
- * ISV E应用Quick-Start示例代码
- * 实现了最简单的免密登录（免登）功能
+ * ISV三方企业E应用解决方案的实例代码
+ * 实现以下功能
+ * 1.程序自建欢迎页面
+ * 2.自动获取用户身份，包含用户userid，昵称，企业信息。
+ * 3.给自己发消息功能
  */
 @RestController
 public class IndexController {
@@ -30,8 +33,9 @@ public class IndexController {
     private AuthedCorpMapper authedCorpMapper;
     @Resource
     private SystemConfigServiceImpl systemConfigService;
+
     /**
-     * 欢迎页面
+     * 程序自检欢迎页面
      */
     @RequestMapping(value = "/welcome", method = RequestMethod.GET)
     public String welcome() {
@@ -42,33 +46,30 @@ public class IndexController {
 
     /**
      * 钉钉用户登录，显示当前登录的企业和用户
-     *
-     * @param corpId          授权企业的CorpId
-     * @param requestAuthCode 免登临时code
+     * @param corpId          授权企业的corpId。当前登录用户应该是属于该企业的
+     * @param requestAuthCode 免登临时code。由客户端传上来。
      */
     @RequestMapping(value = "/login", method = RequestMethod.POST)
     @ResponseBody
     public ServiceResult login(@RequestParam(value = "corpId") String corpId,
                                @RequestParam(value = "authCode") String requestAuthCode) {
-        Long start = System.currentTimeMillis();
         //获取accessToken,注意正式代码要有异常流处理
-        OapiServiceGetCorpTokenResponse oapiServiceGetCorpTokenResponse = dingOAPIService.getOapiServiceGetCorpToken(corpId);
-        String accessToken = oapiServiceGetCorpTokenResponse.getAccessToken();
-        //获取企业信息
+        ServiceResult<String> corpTokenSr = dingOAPIService.getOapiServiceGetCorpToken(corpId,systemConfigService.getSuiteKey());
+        if(!corpTokenSr.isSuccess()){
+            return corpTokenSr;
+        }
+        String accessToken = corpTokenSr.getResult();
+        //访问ISV自己的数据库。获取企业信息
         AuthedCorpDO authedCorpDO = authedCorpMapper.getAuthedCorp(corpId,systemConfigService.getSuiteKey());
-        //查询等得到企业名
         String corpName = authedCorpDO.getCorpName();
-
         //获取用户信息
         OapiUserGetuserinfoResponse oapiUserGetuserinfoResponse = dingOAPIService.getOapiUserGetuserinfo(accessToken, requestAuthCode);
         //3.查询得到当前用户的userId
         // 获得到userId之后应用应该处理应用自身的登录会话管理（session）,避免后续的业务交互（前端到应用服务端）每次都要重新获取用户身份，提升用户体验
         String userId = oapiUserGetuserinfoResponse.getUserid();
-
         //查询得到当前用户的name
         OapiUserGetResponse oapiUserGetResponse = dingOAPIService.getOapiUserGetUserName(accessToken, userId);
         String userName = oapiUserGetResponse.getName();
-
         //返回结果
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("corpId", corpId);
@@ -80,7 +81,7 @@ public class IndexController {
     }
 
     /**
-     * 钉钉用户发消息
+     * 钉钉用户发消息。
      * @param corpId          授权企业的CorpId
      * @param userId          消息接收人的userId
      */
@@ -88,11 +89,12 @@ public class IndexController {
     @ResponseBody
     public ServiceResult sendMsg(@RequestParam(value = "corpId") String corpId,
                                  @RequestParam(value = "userId") String userId) {
-        Long start = System.currentTimeMillis();
         //获取accessToken,注意正式代码要有异常流处理
-        OapiServiceGetCorpTokenResponse oapiServiceGetCorpTokenResponse = dingOAPIService.getOapiServiceGetCorpToken(corpId);
-        String accessToken = oapiServiceGetCorpTokenResponse.getAccessToken();
-
+        ServiceResult<String> corpTokenSr = dingOAPIService.getOapiServiceGetCorpToken(corpId,systemConfigService.getSuiteKey());
+        if(!corpTokenSr.isSuccess()){
+            return corpTokenSr;
+        }
+        String accessToken = corpTokenSr.getResult();
         //获取企业信息
         AuthedCorpDO authedCorpDO = authedCorpMapper.getAuthedCorp(corpId,systemConfigService.getSuiteKey());
         Long agentId = authedCorpDO.getAgentId();
@@ -100,14 +102,11 @@ public class IndexController {
         List<String> userIdList = new ArrayList<>();
         userIdList.add(userId);
         //发送一个带有参数的链接消息。客户端打开应用可以拿到参数
-
         String url = "eapp://page/index/index?param=random_"+new Random().nextLong();
         OapiMessageCorpconversationAsyncsendV2Response response = dingOAPIService.sendLinkMessage(agentId,userIdList,url,accessToken);
-
         //返回结果
         Map<String, Object> resultMap = new HashMap<>();
         resultMap.put("errCode", response.getErrcode());
-
         ServiceResult serviceResult = ServiceResult.success(resultMap);
         return serviceResult;
     }

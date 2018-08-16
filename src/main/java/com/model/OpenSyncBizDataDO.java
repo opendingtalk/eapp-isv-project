@@ -18,7 +18,7 @@ public class OpenSyncBizDataDO {
      */
     private String corpId;
     /**
-     * 业务类型。具体值参见BizTypeEnum的value字段
+     * 业务类型。具体值参见DingCloudPushBizTypeEnum的value字段
      * bizType和bizId确认一条业务数据。
      */
     private int bizType;

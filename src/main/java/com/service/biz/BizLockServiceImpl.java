@@ -30,7 +30,6 @@ public class BizLockServiceImpl {
      * 尝试加锁
      * @param lockKey 锁的Key值。
      * @param seconds 锁定多少秒。
-     * @return
      */
     public ServiceResult<BizLockVO> tryLock(String lockKey, Long seconds){
         bizLogger.info(LogFormatter.getKVLogData(LogFormatter.LogEvent.START,

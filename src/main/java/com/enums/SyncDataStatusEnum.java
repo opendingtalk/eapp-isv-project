@@ -2,7 +2,7 @@ package com.enums;
 
 /**
  * 钉钉给ISV的推送事件。
- * 请关注钉钉开放平稳文档。
+ * 请关注钉钉开放平稳文档。https://open-doc.dingtalk.com/microapp/ln6dmh/troq7i
  */
 public enum SyncDataStatusEnum {
 

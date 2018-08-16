@@ -1,9 +1,6 @@
 package com.service.ding;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 import javax.annotation.Resource;
 
@@ -11,9 +8,15 @@ import com.alibaba.fastjson.JSON;
 import com.dingtalk.api.request.*;
 import com.dingtalk.api.response.*;
 import com.enums.DingCloudPushBizTypeEnum;
+import com.mapper.biz.AuthedCorpMapper;
 import com.mapper.ding.OpenSyncBizDataMapper;
+import com.model.AuthedCorpDO;
 import com.model.OpenSyncBizDataDO;
 import com.service.SystemConfigServiceImpl;
+import com.service.biz.BizLockServiceImpl;
+import com.util.LogFormatter;
+import com.util.ServiceResult;
+import com.util.ServiceResultCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -31,49 +34,84 @@ import com.taobao.api.ApiException;
 @Service("dingOAPIService")
 public class DingOAPIServiceImpl {
     private static final Logger bizLogger = LoggerFactory.getLogger(DingOAPIServiceImpl.class);
+    private static final Logger mainLogger = LoggerFactory.getLogger(DingOAPIServiceImpl.class);
 
     @Resource
     private SystemConfigServiceImpl systemConfigService;
     @Resource
     private OpenSyncBizDataMapper openSyncBizDataMapper;
+    @Resource
+    private AuthedCorpMapper authedCorpMapper;
+    @Resource
+    private BizLockServiceImpl bizLockService;
+
     /**
      * ISV获取企业访问凭证。获取企业的accessToken
      * @param corpId 授权企业的corpId
      */
-    public OapiServiceGetCorpTokenResponse getOapiServiceGetCorpToken(String corpId) {
+    public ServiceResult<String> getOapiServiceGetCorpToken(String corpId, String suiteKey) {
         if (corpId == null || corpId.isEmpty()) {
             return null;
         }
-        //TODO 先从本地拿token
-        long timestamp = System.currentTimeMillis();
-        //正式应用应该由钉钉通过开发者的回调地址动态获取到
-        String suiteTicket = getSuiteTicket(systemConfigService.getSuiteId());
-        String signature = DingTalkSignatureUtil.computeSignature(systemConfigService.getSuiteSecret(), DingTalkSignatureUtil.getCanonicalStringForIsv(timestamp, suiteTicket));
-        Map<String, String> params = new LinkedHashMap<String, String>();
-        params.put("timestamp", String.valueOf(timestamp));
-        params.put("suiteTicket", suiteTicket);
-        params.put("accessKey", systemConfigService.getSuiteKey());
-        params.put("signature", signature);
-        String queryString = DingTalkSignatureUtil.paramToQueryString(params, "utf-8");
-        DingTalkClient client = new DefaultDingTalkClient(ApiUrlConstant.URL_GET_CORP_TOKEN + "?" + queryString);
-        OapiServiceGetCorpTokenRequest request = new OapiServiceGetCorpTokenRequest();
-        request.setAuthCorpid(corpId);
-        OapiServiceGetCorpTokenResponse response;
-        try {
-            response = client.execute(request, systemConfigService.getSuiteKey(), systemConfigService.getSuiteKey(), suiteTicket);
-        } catch (ApiException e) {
-            bizLogger.info(e.toString(), e);
-            return null;
+        //先从本地拿企业的token
+        AuthedCorpDO authedCorpDO = authedCorpMapper.getAuthedCorp(corpId,suiteKey);
+        if(null==authedCorpDO){
+            return ServiceResult.failure(ServiceResultCode.CORP_NOT_AUTH.getErrCode(),ServiceResultCode.CORP_NOT_AUTH.getErrMsg());
         }
-        if (response == null || !response.isSuccess()) {
-            return null;
+        Long expireAt = authedCorpDO.getAccessTokenExpire();
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(new Date());
+        calendar.add(Calendar.MINUTE, 10);//为了防止误差,提前10分钟更新corptoken
+        if (calendar.getTime().getTime()<expireAt) {
+            //如果当前时间加上10分钟的毫秒数比过期的绝对时间小。说明tokne尚在有些有消息。直接使用。
+            return ServiceResult.success(authedCorpDO.getAccessToken());
+        }else{
+            //否则认为企业的token过期了。重新获取token。
+            //加锁,防止并发
+            String lockKey = corpId+"_"+suiteKey+"_token";
+            ServiceResult<BizLockServiceImpl.BizLockVO> tryLockSr = bizLockService.tryLock(lockKey,10L);
+            if (!tryLockSr.isSuccess()) {
+                return ServiceResult.failure(tryLockSr.getCode(),tryLockSr.getMessage());
+            }
+            try{
+                long timestamp = System.currentTimeMillis();
+                //正式应用应该由钉钉通过开发者的回调地址动态获取到
+                String suiteTicket = getSuiteTicket(systemConfigService.getSuiteId());
+                String signature = DingTalkSignatureUtil.computeSignature(systemConfigService.getSuiteSecret(), DingTalkSignatureUtil.getCanonicalStringForIsv(timestamp, suiteTicket));
+                Map<String, String> params = new LinkedHashMap<String, String>();
+                params.put("timestamp", String.valueOf(timestamp));
+                params.put("suiteTicket", suiteTicket);
+                params.put("accessKey", systemConfigService.getSuiteKey());
+                params.put("signature", signature);
+                String queryString = DingTalkSignatureUtil.paramToQueryString(params, "utf-8");
+                DingTalkClient client = new DefaultDingTalkClient(ApiUrlConstant.URL_GET_CORP_TOKEN + "?" + queryString);
+                OapiServiceGetCorpTokenRequest request = new OapiServiceGetCorpTokenRequest();
+                request.setAuthCorpid(corpId);
+                OapiServiceGetCorpTokenResponse response;
+                response = client.execute(request, systemConfigService.getSuiteKey(), systemConfigService.getSuiteKey(), suiteTicket);
+                //更新掉DB中的企业token时间
+                authedCorpDO.setAccessToken(response.getAccessToken());
+                authedCorpDO.setAccessTokenExpire(System.currentTimeMillis() + response.getExpiresIn() * 1000);
+                authedCorpDO.setPermanentCode("permanentCode");
+                authedCorpMapper.addOrUpdateAuthedCorp(authedCorpDO);
+                return ServiceResult.success(response.getAccessToken());
+            }catch (Exception e){
+                String errLog = LogFormatter.getKVLogData(LogFormatter.LogEvent.START,
+                        LogFormatter.KeyValue.getNew("corpId", corpId),
+                        LogFormatter.KeyValue.getNew("suiteKey", suiteKey)
+                );
+                bizLogger.info(errLog,e);
+                mainLogger.error(errLog,e);
+                return ServiceResult.failure(ServiceResultCode.SYS_ERROR.getErrCode(),ServiceResultCode.SYS_ERROR.getErrMsg());
+            }finally {
+                //解锁
+                bizLockService.unLock(lockKey,tryLockSr.getResult().getId());
+            }
         }
-        return response;
     }
 
     /**
      * 通过钉钉服务端API获取用户在当前企业的userId
-     *
      * @param accessToken 企业访问凭证Token
      * @param code        免登code
      * @
