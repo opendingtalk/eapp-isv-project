@@ -1,4 +1,4 @@
-package com.model;
+package com.model.ding;
 
 import java.util.Date;
 /**

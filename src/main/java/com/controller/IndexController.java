@@ -1,13 +1,12 @@
 package com.controller;
 
 import com.dingtalk.api.response.OapiMessageCorpconversationAsyncsendV2Response;
-import com.dingtalk.api.response.OapiServiceGetCorpTokenResponse;
 import com.dingtalk.api.response.OapiUserGetResponse;
 import com.dingtalk.api.response.OapiUserGetuserinfoResponse;
 import com.mapper.biz.AuthedCorpMapper;
-import com.model.AuthedCorpDO;
+import com.model.biz.AuthedCorpDO;
 import com.service.ding.DingOAPIServiceImpl;
-import com.service.SystemConfigServiceImpl;
+import com.service.biz.SystemConfigServiceImpl;
 import com.util.ServiceResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

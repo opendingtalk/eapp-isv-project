@@ -1,6 +1,6 @@
 package com.mapper.ding;
 
-import com.model.OpenSyncBizDataDO;
+import com.model.ding.OpenSyncBizDataDO;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

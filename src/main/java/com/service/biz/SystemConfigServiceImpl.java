@@ -1,4 +1,4 @@
-package com.service;
+package com.service.biz;
 
 import com.alibaba.fastjson.JSON;
 import org.springframework.beans.factory.annotation.Value;

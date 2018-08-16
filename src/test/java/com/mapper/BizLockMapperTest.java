@@ -2,7 +2,7 @@ package com.mapper;
 
 import com.alibaba.fastjson.JSON;
 import com.mapper.biz.BizLockMapper;
-import com.model.BizLockDO;
+import com.model.biz.BizLockDO;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;

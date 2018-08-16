@@ -1,6 +1,7 @@
 package com.service;
 
 import com.alibaba.fastjson.JSON;
+import com.service.biz.SystemConfigServiceImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;

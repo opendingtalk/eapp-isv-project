@@ -2,7 +2,7 @@ package com.mapper;
 
 import com.alibaba.fastjson.JSON;
 import com.mapper.biz.AuthedCorpMapper;
-import com.model.AuthedCorpDO;
+import com.model.biz.AuthedCorpDO;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.boot.test.context.SpringBootTest;

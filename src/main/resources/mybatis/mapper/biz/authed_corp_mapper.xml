@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.mapper.biz.AuthedCorpMapper" >
-    <resultMap id="authedCorpMap" type="com.model.AuthedCorpDO" >
+    <resultMap id="authedCorpMap" type="com.model.biz.AuthedCorpDO" >
         <id column="id" property="id"/>
         <id column="gmt_create" property="gmtCreate"/>
         <id column="gmt_modified" property="gmtModified"/>
@@ -21,7 +21,7 @@
         gmt_create,gmt_modified,corp_name,corp_id,access_token,access_token_expire,permanent_code,suite_key,agent_id
     </sql>
 
-    <insert id="addOrUpdateAuthedCorp" parameterType="com.model.AuthedCorpDO">
+    <insert id="addOrUpdateAuthedCorp" parameterType="com.model.biz.AuthedCorpDO">
         INSERT INTO authed_corp(<include refid="all_column_exclude_id" />)
         VALUES(now(),now(),#{corpName},#{corpId},#{accessToken},#{accessTokenExpire},#{permanentCode},#{suiteKey},#{agentId})
         ON DUPLICATE KEY UPDATE gmt_modified=now(),corp_name=#{corpName},access_token=#{accessToken},

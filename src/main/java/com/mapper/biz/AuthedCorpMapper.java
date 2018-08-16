@@ -1,6 +1,6 @@
 package com.mapper.biz;
 
-import com.model.AuthedCorpDO;
+import com.model.biz.AuthedCorpDO;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

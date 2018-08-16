@@ -1,6 +1,6 @@
 package com.mapper.biz;
 
-import com.model.BizLockDO;
+import com.model.biz.BizLockDO;
 import org.apache.ibatis.annotations.Param;
 
 /**

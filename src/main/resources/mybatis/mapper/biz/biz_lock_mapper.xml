@@ -3,7 +3,7 @@
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.mapper.biz.BizLockMapper">
-    <resultMap type="com.model.BizLockDO" id="BizLockMap">
+    <resultMap type="com.model.biz.BizLockDO" id="BizLockMap">
         <id column="id" property="id" />
         <result property="gmtCreate" column="gmt_create"/>
         <result property="gmtModified" column="gmt_modified"/>

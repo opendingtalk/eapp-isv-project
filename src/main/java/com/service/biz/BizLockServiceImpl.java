@@ -1,7 +1,7 @@
 package com.service.biz;
 
 import com.mapper.biz.BizLockMapper;
-import com.model.BizLockDO;
+import com.model.biz.BizLockDO;
 import com.util.LogFormatter;
 import com.util.ServiceResult;
 import com.util.ServiceResultCode;

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.mapper.ding.OpenSyncBizDataMapper" >
-    <resultMap id="openSyncBizDataMap" type="com.model.OpenSyncBizDataDO" >
+    <resultMap id="openSyncBizDataMap" type="com.model.ding.OpenSyncBizDataDO" >
         <id column="id" property="id"/>
         <id column="gmt_create" property="gmtCreate"/>
         <id column="gmt_modified" property="gmtModified"/>
@@ -53,7 +53,7 @@
         UPDATE open_sync_biz_data SET status=#{status} WHERE id=#{id}
     </update>
     
-    <insert id="insertMessage2OpenSyncBizData" parameterType="com.model.OpenSyncBizDataDO">
+    <insert id="insertMessage2OpenSyncBizData" parameterType="com.model.ding.OpenSyncBizDataDO">
     	INSERT INTO open_sync_biz_data(<include refid="all_column_exclude_id" />)
         VALUES(#{gmtCreate},#{gmtModified},#{subscribeId},#{corpId},#{bizId},#{bizType},#{bizData},#{openCursor},#{status})
     </insert>

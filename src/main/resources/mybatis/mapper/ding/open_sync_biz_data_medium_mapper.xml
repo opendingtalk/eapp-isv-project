@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.mapper.ding.OpenSyncBizDataMediumMapper" >
-    <resultMap id="openSyncBizDataMap" type="com.model.OpenSyncBizDataDO" >
+    <resultMap id="openSyncBizDataMap" type="com.model.ding.OpenSyncBizDataDO" >
         <id column="id" property="id"/>
         <id column="gmt_create" property="gmtCreate"/>
         <id column="gmt_modified" property="gmtModified"/>
