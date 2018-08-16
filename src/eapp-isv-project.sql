@@ -27,7 +27,7 @@ CREATE TABLE `authed_corp` (
   `corp_id` varchar(64) NOT NULL COMMENT '企业ID',
   `access_token` varchar(128) NOT NULL COMMENT '企业访问AccessToken',
   `access_token_expire` bigint(20) NOT NULL COMMENT '企业访问AccessToken过期时间毫秒,绝对时间',
-  `permanent_code` varchar(128) NOT NULL COMMENT '企业访问开通应用的永久授权码,已弃用',
+  `permanent_code` varchar(128) NOT NULL DEFAULT '' COMMENT '企业访问开通应用的永久授权码,已弃用',
   `suite_key` varchar(128) NOT NULL COMMENT '企业开通的应用/套件',
   `agent_id` bigint(20) unsigned DEFAULT NULL COMMENT '企业开通应用实例id',
   PRIMARY KEY (`id`),
